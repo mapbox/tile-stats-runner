@@ -3,7 +3,7 @@
 var runStats = require('./');
 
 var ids = 'mapbox.mapbox-streets-v7';
-var token = 'pk.eyJ1IjoicmVkdWNlciIsImEiOiJrS3k2czVJIn0.CjwU0V9fO4FAf3ukyV4eqQ';
+var token = '<PUT_YOUR_TOKEN_HERE>';
 var url = 'https://b.tiles.mapbox.com/v4/' + ids + '/{z}/{x}/{y}.vector.pbf?access_token=' + token;
 
 var result = {};
