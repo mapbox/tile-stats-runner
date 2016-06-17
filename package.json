@@ -1,0 +1,20 @@
+{
+  "name": "tile-stats-runner",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "dependencies": {
+    "d3-queue": "^3.0.1",
+    "mkdirp": "^0.5.1",
+    "request": "^2.72.0",
+    "shorthash": "^0.0.2",
+    "tilebelt": "^1.0.1"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "Vladimir Agafonkin",
+  "license": "ISC"
+}
