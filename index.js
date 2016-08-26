@@ -16,7 +16,7 @@ var defaultOptions = {
     minZoom: 0,
     maxZoom: 16,
     center: [-77.03275, 38.91279],
-    cacheDir: './tile-cache'
+    cacheDir: path.join(__dirname, '/tile-cache')
 };
 
 function runStats(url, processTile, callback, options) {
