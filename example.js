@@ -5,7 +5,7 @@ const runStats = require('./');
 
 const ids = 'mapbox.mapbox-streets-v7';
 const token = '<your-token-here>';
-const url = `https://api.mapbox.com/v4/${ids}/{z}/{x}/{y}.vector.pbf?access_token=${token}`;
+const url = `https://b.tiles.mapbox.com/v4/${ids}/{z}/{x}/{y}.vector.pbf?access_token=${token}`;
 
 const result = {};
 

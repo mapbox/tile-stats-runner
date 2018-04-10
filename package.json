@@ -6,7 +6,6 @@
   "dependencies": {
     "mkdirp": "^0.5.1",
     "node-fetch": "^2.1.2",
-    "p-queue": "^2.4.0",
     "shorthash": "^0.0.2",
     "tilebelt": "^1.0.1"
   },
