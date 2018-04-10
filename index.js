@@ -18,16 +18,12 @@ const defaultOptions = {
     cacheDir: path.join(__dirname, '/tile-cache')
 };
 
-async function runStats(url, processTile, options) {
+async function runStats(url, options, processTile) {
 
     options = Object.assign(Object.create(defaultOptions), options || {});
 
     const cachePath = path.join(options.cacheDir, hash(url));
     mkdirp(cachePath);
-
-    const handleTileLoad = (tile) => {
-        if (tile) processTile(tile);
-    };
 
     const tilePromises = [];
 
@@ -42,12 +38,13 @@ async function runStats(url, processTile, options) {
 
         for (let x = minX; x <= maxX; x++) {
             for (let y = minY; y <= maxY; y++) {
-                tilePromises.push(loadTile(z, x, y, url, cachePath).then(handleTileLoad));
+                tilePromises.push(loadTile(z, x, y, url, cachePath));
             }
         }
     }
 
-    await Promise.all(tilePromises);
+    const tiles = await Promise.all(tilePromises);
+    for (const tile of tiles) processTile(tile);
 
     process.stderr.write('\n');
 }
@@ -70,14 +67,15 @@ async function loadTile(z, x, y, urlTemplate, cachePath) {
 
     if (response.status === 200) {
         const data = await response.buffer();
-        process.stderr.write('+');
         fs.writeFileSync(tilePath, data);
+        process.stderr.write('+');
         return {z, x, y, data};
-
-    } else if (response.status === 404) {
-        process.stderr.write('_');
-
-    } else {
-        throw new Error(response.status + ' ' + url);
     }
+    if (response.status === 404) {
+        const data = null;
+        process.stderr.write('_');
+        return {z, x, y, data};
+    }
+
+    throw new Error(response.status + ' ' + url);
 }
