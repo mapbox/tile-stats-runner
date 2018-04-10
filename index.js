@@ -1,16 +1,16 @@
 'use strict';
 
-var queue = require('d3-queue').queue;
-var request = require('request');
-var tilebelt = require('tilebelt');
-var mkdirp = require('mkdirp');
-var hash = require('shorthash').unique;
-var path = require('path');
-var fs = require('fs');
+const PQueue = require('p-queue');
+const tilebelt = require('tilebelt');
+const mkdirp = require('mkdirp');
+const hash = require('shorthash').unique;
+const path = require('path');
+const fs = require('fs');
+const fetch = require('node-fetch');
 
 module.exports = runStats;
 
-var defaultOptions = {
+const defaultOptions = {
     width: 2880,
     height: 1800,
     minZoom: 0,
@@ -19,82 +19,69 @@ var defaultOptions = {
     cacheDir: path.join(__dirname, '/tile-cache')
 };
 
-function runStats(url, processTile, callback, options) {
+function runStats(url, processTile, options) {
 
-    options = extend(Object.create(defaultOptions), options || {});
+    options = Object.assign(Object.create(defaultOptions), options || {});
 
-    var cachePath = path.join(options.cacheDir, hash(url));
-
+    const cachePath = path.join(options.cacheDir, hash(url));
     mkdirp(cachePath);
 
-    var q = queue(4);
+    const q = new PQueue({concurrency: 4});
 
-    for (var z = options.minZoom; z <= options.maxZoom; z++) {
-        var p = tilebelt.pointToTileFraction(options.center[0], options.center[1], z);
-        var z2 = Math.pow(2, z);
+    const handleTileLoad = (tile) => {
+        if (tile) processTile(tile);
+    };
 
-        var minX = Math.max(Math.floor(p[0] - 0.5 * options.width / 512), 0);
-        var minY = Math.max(Math.floor(p[1] - 0.5 * options.height / 512), 0);
-        var maxX = Math.min(Math.floor(p[0] + 0.5 * options.width / 512), z2 - 1);
-        var maxY = Math.min(Math.floor(p[1] + 0.5 * options.height / 512), z2 - 1);
+    for (let z = options.minZoom; z <= options.maxZoom; z++) {
+        const p = tilebelt.pointToTileFraction(options.center[0], options.center[1], z);
+        const z2 = Math.pow(2, z);
 
-        for (var x = minX; x <= maxX; x++) {
-            for (var y = minY; y <= maxY; y++) {
-                q.defer(loadTile, z, x, y, url, cachePath, processTile);
+        const minX = Math.max(Math.floor(p[0] - 0.5 * options.width / 512), 0);
+        const minY = Math.max(Math.floor(p[1] - 0.5 * options.height / 512), 0);
+        const maxX = Math.min(Math.floor(p[0] + 0.5 * options.width / 512), z2 - 1);
+        const maxY = Math.min(Math.floor(p[1] + 0.5 * options.height / 512), z2 - 1);
+
+        for (let x = minX; x <= maxX; x++) {
+            for (let y = minY; y <= maxY; y++) {
+                q.add(loadTile(z, x, y, url, cachePath)).then(handleTileLoad);
             }
         }
     }
 
-    q.awaitAll(function () {
-        process.stdout.write('\n');
-        callback();
+    return q.onIdle().then(() => {
+        process.stderr.write('\n');
     });
 }
 
-function loadTile(z, x, y, urlTemplate, cachePath, processTile, done) {
-    var tilePath = path.join(cachePath, z + '-' + x + '-' + y);
-    var tile = readFileIfExists(tilePath);
+function loadTile(z, x, y, urlTemplate, cachePath) {
+    return async () => {
+        const tilePath = path.join(cachePath, z + '-' + x + '-' + y);
+        try {
+            const data = fs.readFileSync(tilePath);
+            process.stderr.write('.');
+            return {z, x, y, data};
 
-    if (tile) {
-        processTile(tile, z);
-        process.stdout.write('.');
-        done();
+        } catch (e) {
+            const url = urlTemplate
+                .replace('{x}', x)
+                .replace('{y}', y)
+                .replace('{z}', z);
 
-    } else {
-        var url = urlTemplate
-            .replace('{x}', x)
-            .replace('{y}', y)
-            .replace('{z}', z);
+            const response = await fetch(url);
 
-        request({url: url, encoding: null, gzip: true}, function (err, response, body) {
-            if (err) throw err;
-            if (response.statusCode === 200) {
-                processTile(body, z);
-                process.stdout.write('+');
+            if (response.status === 200) {
+                const data = await response.buffer();
+                process.stderr.write('+');
+                fs.writeFileSync(tilePath, data);
+                return {z, x, y, data};
 
-            } else if (response.statusCode === 404) {
-                process.stdout.write('_');
+            } else if (response.status === 404) {
+                process.stderr.write('_');
 
             } else {
-                throw new Error(response.statusCode + ' ' + url);
+                throw new Error(response.status + ' ' + url);
             }
-            fs.writeFileSync(tilePath, body);
-            done();
-        });
-    }
-}
-
-function readFileIfExists(path) {
-    try {
-        return fs.readFileSync(path);
-    } catch (e) {
+        }
         return null;
-    }
-}
-
-function extend(dest, src) {
-    for (var i in src) {
-        dest[i] = src[i];
-    }
-    return dest;
+    };
 }
